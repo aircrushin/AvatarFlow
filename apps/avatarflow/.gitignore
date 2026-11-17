@@ -1,0 +1,14 @@
+# Local runtime data and secrets
+.data/
+.next/
+out/
+.supabase-setup.json
+.supabase-token
+.env*.local
+.env*.supabase
+
+# Logs
+*.log
+
+# Build info
+*.tsbuildinfo
