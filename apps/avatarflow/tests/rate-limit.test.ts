@@ -18,6 +18,12 @@ describe('Rate limiter', () => {
     expect(rateLimit(key, 1)).toBe(false);
   });
 
+  it('blocks the request after the limit inside one window', () => {
+    const key = `test-window-${Math.random()}`;
+    for (let i = 0; i < 60; i++) expect(rateLimit(key, 60, 60_000)).toBe(true);
+    expect(rateLimit(key, 60, 60_000)).toBe(false);
+  });
+
   it('isolates different keys', () => {
     const k1 = `k1-${Math.random()}`;
     const k2 = `k2-${Math.random()}`;
