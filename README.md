@@ -1,119 +1,73 @@
-<h1><img src="https://www.dicebear.com/logo-readme.svg" width="28" /> DiceBear Avatar Library</h1>
+# AvatarFlow
 
-<p>
-  <img src="https://www.dicebear.com/readme-hero.svg" alt="A grid of DiceBear avatars in twenty-four different styles" width="100%" />
-</p>
+企业品牌头像互动平台。
 
-[![npm](https://www.dicebear.com/badges/npm.svg)](https://www.npmjs.com/package/@dicebear/core)
-[![stars](https://www.dicebear.com/badges/stars.svg)](https://github.com/dicebear/dicebear/stargazers)
-[![license](https://www.dicebear.com/badges/license.svg)](./LICENSE)
+让每一次扫码，都成为一次品牌曝光。AvatarFlow 帮活动策划公司、品牌营销团队和企业 HR 快速搭建专属头像互动 H5：配置 Logo、品牌色和头像风格，发布一个链接，参与者用微信扫码即可创作、下载并分享自己的品牌头像。
 
-DiceBear is an open source avatar library. It turns any seed string (a username
-or an email address, for example) into an SVG avatar in one of 63 styles, from
-hand-drawn characters to abstract patterns. The same seed always produces the
-same avatar, so you store a string instead of an image and never ask users to
-upload a profile picture.
+## 适合谁
 
-Avatars are customizable through style options: colors, backgrounds, rotation,
-individual features like hair or glasses.
+- 活动策划公司：为单场活动做出可扫码参与的头像互动
+- 品牌营销团队：把品牌色、Logo 和装饰做进参与者愿意转发的图片
+- 企业 HR：年会、入职、内宣等场景的轻量互动页
 
-[Playground](https://www.dicebear.com/playground) |
-[Documentation](https://www.dicebear.com/start/what-is-dicebear/) |
-[Editor](https://editor.dicebear.com)
+## 核心能力
 
-## One library, seven languages
+| 能力 | 做什么 |
+| --- | --- |
+| 品牌视觉定制 | 上传 Logo、设定品牌色，头像带上这场活动自己的识别，而不是套一套通用模板 |
+| 活动 H5 | 一个独立链接，扫码即用。无需下载 App，微信内置浏览器可直接打开 |
+| 参与者互动 | 选风格、随机生成、微调参数、实时预览，几秒得到一张自己的头像 |
+| 传播素材 | 导出 1024px PNG。品牌背景、头像、边框和贴纸合成在一张图里 |
+| 活动数据 | 记录访问、生成、下载、分享，按活动和时间聚合，可导出 CSV |
 
-DiceBear 10 ships as native libraries for JavaScript, PHP, Python, Rust, Go,
-Dart, and C#. Every port passes a shared test suite that requires byte-identical
-SVG output to the JavaScript reference. Generate an avatar in the browser,
-regenerate it later in a Go or PHP backend, and you get the same bytes.
+一次活动的路径：创建活动 → 配置品牌 → 预览 → 发布 → 扫码访问 → 生成头像 → 下载 PNG。
 
-| Language                | Package                                                                 | Install                                      |
-| ----------------------- | ----------------------------------------------------------------------- | -------------------------------------------- |
-| JavaScript / TypeScript | [`@dicebear/core`](https://www.npmjs.com/package/@dicebear/core)        | `npm install @dicebear/core`                 |
-| PHP                     | [`dicebear/core`](https://packagist.org/packages/dicebear/core)         | `composer require dicebear/core`             |
-| Python                  | [`dicebear-core`](https://pypi.org/project/dicebear-core/)              | `pip install dicebear-core`                  |
-| Rust                    | [`dicebear-core`](https://crates.io/crates/dicebear-core)               | `cargo add dicebear-core`                    |
-| Go                      | [`dicebear-go`](https://pkg.go.dev/github.com/dicebear/dicebear-go/v11) | `go get github.com/dicebear/dicebear-go/v11` |
-| Dart                    | [`dicebear_core`](https://pub.dev/packages/dicebear_core)               | `dart pub add dicebear_core`                 |
-| C#                      | [`DiceBear.Core`](https://www.nuget.org/packages/DiceBear.Core)         | `dotnet add package DiceBear.Core`           |
+- 管理后台：`/admin`
+- 活动页：`/e/[slug]`
+- 演示列表：`/showcase`
 
-In JavaScript it looks like this; the
-[documentation](https://www.dicebear.com/start/what-is-dicebear/) has the
-equivalent for each language:
+## 服务方式
 
-```js
-import { Avatar, Style } from '@dicebear/core';
-import definition from '@dicebear/styles/lorelei.json' with { type: 'json' };
+| 方式 | 报价 | 包含 |
+| --- | --- | --- |
+| 试点 | ¥699 | 首批试点，用来验证真实活动场景 |
+| 标准服务 | ¥1,999 | 品牌配置、活动搭建与上线支持 |
+| 企业定制 | ¥4,999 起 | 深度品牌定制与专属装饰元素 |
 
-const avatar = new Avatar(new Style(definition), {
-  seed: 'John',
-  size: 128,
-});
+以上为服务报价参考，非已验证市场价格。具体以实际沟通为准。
 
-avatar.toString(); // SVG string
-avatar.toDataUri(); // data:image/svg+xml;charset=utf-8,...
+## 这个仓库
+
+本仓库 fork 自 [DiceBear](https://github.com/dicebear/dicebear)。AvatarFlow 是其中的应用 `apps/avatarflow`（workspace 名 `@avatarflow/app`），在本地复用 DiceBear 引擎，不调用官方公共 API。
+
+- `apps/avatarflow` — 产品应用：管理后台、活动 H5、生成与统计 API
+- `src/js/core` — DiceBear 头像引擎，保持上游 baseline
+- `apps/docs`、`apps/editor` — DiceBear 原有站点与编辑器，未改作产品入口
+
+产品只内置 **CC0 1.0** 风格（20 个），定义在 `apps/avatarflow/src/lib/dicebear/styles/`。注册表在加载时校验许可证，非 CC0 会直接失败。DiceBear 其余需要署名或另有商用条款的风格没有纳入。
+
+上游项目与文档：
+
+- 仓库：[dicebear/dicebear](https://github.com/dicebear/dicebear)
+- 文档：[dicebear.com](https://www.dicebear.com)
+- 编辑器：[editor.dicebear.com](https://editor.dicebear.com)
+
+## 本地运行
+
+需要 Node.js 22 或更高版本。在仓库根目录：
+
+```bash
+npm install
+npm run build -w @dicebear/core
+cp apps/avatarflow/.env.example apps/avatarflow/.env.local
+cd apps/avatarflow
+npm run dev
 ```
 
-The 63 avatar styles are plain JSON definitions from the
-[`dicebear/styles`](https://github.com/dicebear/styles) repository, available as
-a package for each language. You can also
-[create your own style](https://www.dicebear.com/create-styles/with-figma/),
-with Figma or from scratch.
+开发服务器默认在 http://localhost:3000 。未配置 Supabase / R2 时，数据写在本地 JSON，上传文件放在 `public/uploads`，可以离线运行。
 
-## Without writing code
+环境变量、Supabase 绑定、R2、微信内置浏览器和公网部署见 [apps/avatarflow/README.md](./apps/avatarflow/README.md)。
 
-- The [HTTP API](https://www.dicebear.com/integrations/http-api/) returns
-  avatars from a plain URL, free and without an account:
-  `https://api.dicebear.com/10.x/lorelei/svg?seed=Felix`. For full control and
-  privacy you can
-  [host it yourself](https://www.dicebear.com/recipes/self-host-the-http-api/)
-  with a single Docker container.
-- The [CLI](https://www.dicebear.com/integrations/cli/) prints an avatar to the
-  terminal or generates files in bulk:
-  `npx dicebear create lorelei -o ./avatars --count 10`.
-- The [editor](https://editor.dicebear.com) lets you assemble a single avatar by
-  hand and export it.
+## 许可
 
-## This repository
-
-This monorepo contains the seven core libraries, the CLI, the SVG-to-raster
-converter, the documentation site ([dicebear.com](https://www.dicebear.com)),
-and the editor. Related projects live in their own repositories:
-
-- [`dicebear/styles`](https://github.com/dicebear/styles): the official avatar
-  style definitions
-- [`dicebear/schema`](https://github.com/dicebear/schema): the JSON Schema
-  behind definitions and options
-- [`dicebear/api`](https://github.com/dicebear/api): the self-hostable HTTP API
-- [`dicebear/studio`](https://github.com/dicebear/studio): DiceBear Studio, the
-  plugin for Figma for style authors
-
-Contributions are welcome; [CONTRIBUTING.md](./CONTRIBUTING.md) explains the
-setup and where each kind of change belongs.
-
-## License
-
-The code is [MIT licensed](./LICENSE), including commercial use. The avatar
-styles are the work of their respective creators and carry their own licenses;
-the [license overview](https://www.dicebear.com/licenses/) lists them all, and
-many only ask for attribution.
-
-## Star this repository
-
-If DiceBear saved you some work, a star makes the project easier to find for the
-next person looking for an avatar library. The
-[support page](https://www.dicebear.com/support/) lists the other ways to help.
-
-## Sponsors
-
-Advertisement: Many thanks to our sponsors who provide us with free or
-discounted products.
-
-<a href="https://bunny.net/" target="_blank" rel="noopener noreferrer">
-    <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://www.dicebear.com/sponsors/bunny-light.svg">
-        <source media="(prefers-color-scheme: light)" srcset="https://www.dicebear.com/sponsors/bunny-dark.svg">
-        <img alt="bunny.net" src="https://www.dicebear.com/sponsors/bunny-dark.svg" height="64">
-    </picture>
-</a>
+仓库代码沿用 [MIT 许可](./LICENSE)，包含商业使用。AvatarFlow 选用的头像风格另行为 CC0 1.0，作者与来源登记在 `apps/avatarflow/src/lib/dicebear/registry.generated.ts`。

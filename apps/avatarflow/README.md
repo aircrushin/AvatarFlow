@@ -1,10 +1,10 @@
 # AvatarFlow
 
-企业品牌头像互动平台。基于 [DiceBear](https://github.com/dicebear/dicebear) 开源引擎构建，帮助企业和活动主办方快速创建品牌专属的头像互动 H5。
+企业品牌头像互动平台。产品定位、能力与服务方式见仓库根目录 [README](../../README.md)。本文是应用的开发、数据后端和部署说明。
 
 ## 与仓库的关系
 
-本目录是 DiceBear monorepo 中的一个新 workspace（`@avatarflow/app`）。DiceBear 官方仓库作为 baseline 保留在仓库根目录，未做任何修改：
+应用是 workspace `@avatarflow/app`，放在 fork 自 [DiceBear](https://github.com/dicebear/dicebear) 的 monorepo 里。引擎源码保持上游 baseline，未改 DiceBear 官方包：
 
 - `src/js/core` — DiceBear 头像生成引擎（本地复用，不依赖官方公共 API）
 - `apps/avatarflow` — 本应用
