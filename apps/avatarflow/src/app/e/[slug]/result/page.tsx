@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { track } from '@/lib/client';
+import { blobToDataUrl, isWechatBrowser, svgToDataUrl } from '@/lib/wechat';
 import type { PublicEvent } from '@/lib/types';
 
 export default function ResultPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -15,12 +16,19 @@ export default function ResultPage({ params }: { params: Promise<{ slug: string 
   const [downloading, setDownloading] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [inWechat, setInWechat] = useState(false);
+  // PNG data URL shown for long-press saving inside WeChat (a.download ignored).
+  const [saveImage, setSaveImage] = useState('');
 
   useEffect(() => {
     let active = true;
+    setInWechat(isWechatBrowser());
     params.then(async ({ slug: s }) => {
       setSlug(s);
-      setPreview(sessionStorage.getItem('avatarflow_preview') ?? '');
+      // Prefer the raw SVG text saved by the create page: a data URL survives
+      // navigation and can be long-pressed in WeChat, unlike a blob: URL.
+      const svg = sessionStorage.getItem('avatarflow_svg');
+      setPreview(svg ? svgToDataUrl(svg) : (sessionStorage.getItem('avatarflow_preview') ?? ''));
       setSeed(sessionStorage.getItem('avatarflow_seed') ?? '');
       setStyleName(sessionStorage.getItem('avatarflow_style') ?? '');
       try {
@@ -54,14 +62,23 @@ export default function ResultPage({ params }: { params: Promise<{ slug: string 
         throw new Error(data.error ?? '下载失败');
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `avatarflow-${slug}-${seed.slice(0, 8)}.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (inWechat) {
+        // WeChat's webview ignores the download attribute. Show a real PNG
+        // <img> instead so the user can long-press to save to the album.
+        const dataUrl = await blobToDataUrl(blob);
+        setSaveImage(dataUrl);
+        setNotice('长按下方图片保存到相册');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `avatarflow-${slug}-${seed.slice(0, 8)}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setNotice('已开始下载');
+      }
       void track(slug, 'avatar_download');
     } catch (e) {
       setError(e instanceof Error ? e.message : '下载失败');
@@ -73,6 +90,10 @@ export default function ResultPage({ params }: { params: Promise<{ slug: string 
   const share = async () => {
     const url = window.location.origin + `/e/${slug}`;
     void track(slug, 'share_click');
+    if (inWechat) {
+      setNotice('点击右上角「···」→「分享给朋友」即可分享活动');
+      return;
+    }
     try {
       if (navigator.share) {
         await navigator.share({ title: event?.name ?? 'AvatarFlow', text: '来生成你的品牌头像', url });
@@ -114,15 +135,25 @@ export default function ResultPage({ params }: { params: Promise<{ slug: string 
         {notice && <p className="muted" style={{ fontSize: 13, textAlign: 'center', marginBottom: 12 }}>{notice}</p>}
         {error && <p className="error-msg" style={{ fontSize: 13, textAlign: 'center', marginBottom: 12 }}>{error}</p>}
 
-        <div style={{ display: 'grid', gap: 10 }}>
+        {saveImage && (
+          <div className="card" style={{ padding: 12, marginTop: 16, textAlign: 'center' }}>
+            <p style={{ fontSize: 13, marginBottom: 10, fontWeight: 500 }}>长按下方图片保存到相册</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={saveImage} alt="长按保存头像" style={{ width: '100%', maxWidth: 320, borderRadius: 8 }} />
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
           <button className="btn btn-accent" disabled={downloading} onClick={downloadPng} style={{ minHeight: 50, background: primary, color: '#fff' }}>
-            {downloading ? '生成中…' : '下载高清 PNG'}
+            {downloading ? '生成中…' : (inWechat ? '生成可保存图片' : '下载高清 PNG')}
           </button>
           <button className="btn btn-ghost" onClick={share} style={{ minHeight: 50 }}>分享活动</button>
         </div>
 
         <p className="faint" style={{ fontSize: 12, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
-          下载失败时，可长按图片保存，或截图后使用。
+          {inWechat
+            ? '微信内请先点「生成可保存图片」，再长按图片保存到相册。'
+            : '下载失败时，可长按上方预览图保存，或截图后使用。'}
         </p>
       </div>
     </main>

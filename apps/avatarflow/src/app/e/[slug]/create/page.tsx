@@ -70,6 +70,13 @@ export default function CreatePage({ params }: { params: Promise<{ slug: string 
           }),
         });
         const svgText = await readSvgResponse(res);
+        // Persist the raw SVG text so the result page can rebuild a stable
+        // data URL. blob: URLs do not survive navigation (common in WeChat).
+        try {
+          sessionStorage.setItem('avatarflow_svg', svgText);
+        } catch {
+          // Storage may be full or disabled; the result page falls back.
+        }
         const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
         const url = URL.createObjectURL(svgBlob);
         if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
