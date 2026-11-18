@@ -124,11 +124,22 @@ npm run db:verify      # 验证 Supabase 绑定与 REST 连通性
 
 ## 验证状态
 
-已在本地完成端到端验证：管理员登录鉴权、活动创建、公开访问、SVG/PNG 生成、相同 Seed 复现、不同 Seed 差异、非白名单风格拒绝、二维码、统计记录。18 项单元测试通过，生产构建通过。
+- 本地端到端：管理员登录鉴权、活动创建、公开访问、SVG/PNG 生成、相同 Seed 复现、不同 Seed 差异、非白名单风格拒绝、二维码、统计记录。
+- 23 项单元测试通过，TypeScript 严格检查通过，生产构建通过（25 条路由）。
+- 公网部署（Supabase 后端）已验证：页面与 API 可访问、沙箱可读到 Supabase 数据、SVG/PNG 生成成功、`resvg-js`/`sharp` 原生模块在沙箱可用、生成与统计数据写入 Supabase 成功。
+
+## 公网部署
+
+已用内置「发布为应用」能力上线，后端切换为 Supabase（数据落在 PostgreSQL，不再依赖本地文件）。为适配托管沙箱做了三处调整：
+
+- `pg` 只在 bootstrap 的一次性降级路径按需动态加载，不进入运行时依赖清单（沙箱预检会把 `pg` 误判为外部数据库依赖）。
+- 本地存储的 Logo 返回相对 `/uploads/...` URL，二维码从请求头 `X-Forwarded-Host` / `Host` 推导公网 origin，均不再依赖构建期 `NEXT_PUBLIC_APP_URL`。
+- 沙箱启动命令：`npm run build && npm start`（`next start` 默认绑定 `0.0.0.0`，端口由沙箱以 `PORT` 注入）。
+
+注意：Cloudflare R2 未配置时，上传的 Logo 存在沙箱本地文件系统，实例重建后会丢失；正式交付建议配置 R2。限流为单进程内存实现，多实例部署需换 Redis/Upstash。
 
 ## 已知边界
 
 - 管理端为单管理员（环境变量密码），无 RBAC（符合第一版要求）。
-- 限流为单进程内存实现；多实例部署需替换为 Redis/Upstash。
 - 在线支付、AI 生图、多租户计费等 P2 功能未实现（按规范禁止投入）。
-- 生产部署目标待定；`output: standalone` 已配置，可用 `node .next/standalone/server.js` 启动。
+- 公网链接由发布平台网关以 sharecode 保护；裸域名直连 API 会返回 403，属预期行为。
