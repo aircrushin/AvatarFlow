@@ -66,6 +66,8 @@ export const generateSchema = z.object({
   options: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   format: z.enum(['svg', 'png']).default('png'),
   size: z.number().int().min(64).max(2048).default(1024),
+  /** Same browser id used by /track, so generate events dedupe per visitor. */
+  visitorId: z.string().uuid().optional(),
 });
 
 export const trackSchema = z.object({

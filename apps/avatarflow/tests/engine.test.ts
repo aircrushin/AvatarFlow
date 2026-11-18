@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderAvatarSvg } from '../src/lib/dicebear/engine';
+import { renderAvatarSvg, styleControls } from '../src/lib/dicebear/engine';
 import { STYLE_REGISTRY } from '../src/lib/dicebear/registry.generated';
 
 // engine imports `server-only`, which throws outside a Next.js server context.
@@ -64,5 +64,32 @@ describe('Avatar rendering', () => {
       const svg = renderAvatarSvg({ styleName: style.name, seed: 'smoke', size: 128 });
       expect(svg).toContain('<svg');
     }
+  });
+
+  it('accepts a single variant name from the visitor controls', () => {
+    const svg = renderAvatarSvg({
+      styleName: 'cats',
+      seed: 'eyed',
+      size: 128,
+      options: { eyesVariant: 'happy', rotate: 15 },
+    });
+    expect(svg).toContain('<svg');
+  });
+});
+
+describe('Style controls', () => {
+  it('exposes a short tunable set for a CC0 style', () => {
+    const controls = styleControls('cats');
+    const keys = controls.map((c) => c.key);
+    expect(keys).toContain('scale');
+    expect(keys).toContain('rotate');
+    expect(keys).toContain('eyesVariant');
+    expect(keys).not.toContain('seed');
+    expect(keys).not.toContain('sceneVariant');
+    expect(controls.find((c) => c.key === 'eyesVariant')?.values).toContain('happy');
+  });
+
+  it('returns nothing for a style outside the whitelist', () => {
+    expect(styleControls('avataaars')).toEqual([]);
   });
 });

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { newSeedClient, readSvgResponse, track } from './client-utils';
-import type { PublicEvent } from '@/lib/types';
+import { getVisitorId } from '@/lib/client';
+import { newSeedClient, readSvgResponse } from './client-utils';
+import type { PublicEvent, StyleControl } from '@/lib/types';
 
 type OptionValue = string | number | boolean;
 
@@ -17,6 +18,7 @@ export default function CreatePage({ params }: { params: Promise<{ slug: string 
   const [preview, setPreview] = useState('');
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState<Record<string, OptionValue>>({});
+  const [controls, setControls] = useState<StyleControl[]>([]);
 
   // Auto-preview must run at most once per event+style. Without this guard a
   // failed generation (e.g. a 429) leaves preview empty and re-triggers the
@@ -64,9 +66,10 @@ export default function CreatePage({ params }: { params: Promise<{ slug: string 
           body: JSON.stringify({
             styleName,
             seed: useSeed,
-            options,
+            options: Object.fromEntries(Object.entries(options).filter(([, value]) => value !== '')),
             format: 'svg',
             size: 512,
+            visitorId: readVisitorId(),
           }),
         });
         const svgText = await readSvgResponse(res);
@@ -103,14 +106,28 @@ export default function CreatePage({ params }: { params: Promise<{ slug: string 
     void generate();
   }, [event, styleName, slug, generate]);
 
-  const activeOptions = event?.styles.find((s) => s.styleName === styleName)?.styleOptions ?? {};
+  useEffect(() => {
+    if (!styleName) return;
+    let active = true;
+    setControls([]);
+    fetch(`/api/public/styles/${styleName}`)
+      .then((r) => r.json())
+      .then((data: { controls?: StyleControl[] }) => {
+        if (active) setControls(data.controls ?? []);
+      })
+      .catch(() => {
+        if (active) setControls([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [styleName]);
 
   const handleResult = () => {
     if (!preview) return;
     sessionStorage.setItem('avatarflow_preview', preview);
     sessionStorage.setItem('avatarflow_seed', seed);
     sessionStorage.setItem('avatarflow_style', styleName);
-    void track(slug, 'avatar_download');
     router.push(`/e/${slug}/result`);
   };
 
@@ -166,6 +183,7 @@ export default function CreatePage({ params }: { params: Promise<{ slug: string 
                 key={s.styleName}
                 onClick={() => {
                   setStyleName(s.styleName);
+                  setOptions({});
                   setPreview('');
                 }}
                 className="btn btn-ghost"
@@ -183,24 +201,51 @@ export default function CreatePage({ params }: { params: Promise<{ slug: string 
           </div>
         </div>
 
-        {Object.keys(activeOptions).length > 0 && (
+        {controls.length > 0 && (
           <div className="card" style={{ padding: 16, marginBottom: 16 }}>
             <p className="eyebrow" style={{ marginBottom: 12 }}>微调参数</p>
-            {Object.entries(activeOptions).map(([key, value]) => (
-              <div key={key} className="field" style={{ marginBottom: 10 }}>
-                <label>{key}</label>
-                <input
-                  value={String(value ?? '')}
-                  onChange={(e) =>
-                    setOptions((prev) => ({
-                      ...prev,
-                      [key]: typeof value === 'number' ? Number(e.target.value) : e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            ))}
-            <button className="btn btn-ghost" style={{ width: '100%', marginTop: 6 }} onClick={() => generate(seed)}>
+            <div style={{ display: 'grid', gap: 12 }}>
+              {controls.map((control) => {
+                const current = options[control.key] ?? control.defaultValue;
+                if (control.kind === 'range') {
+                  return (
+                    <label key={control.key} className="field">
+                      <span style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        {control.label}
+                        <span className="mono faint">{Number(current).toFixed(control.step && control.step < 1 ? 1 : 0)}</span>
+                      </span>
+                      <input
+                        type="range"
+                        min={control.min}
+                        max={control.max}
+                        step={control.step}
+                        value={Number(current)}
+                        onChange={(e) =>
+                          setOptions((prev) => ({ ...prev, [control.key]: Number(e.target.value) }))
+                        }
+                      />
+                    </label>
+                  );
+                }
+                return (
+                  <label key={control.key} className="field">
+                    {control.label}
+                    <select
+                      value={String(current)}
+                      onChange={(e) =>
+                        setOptions((prev) => ({ ...prev, [control.key]: e.target.value }))
+                      }
+                    >
+                      {control.defaultValue === '' && <option value="">默认</option>}
+                      {control.values?.map((value) => (
+                        <option key={value} value={value}>{labelFor(control.key, value)}</option>
+                      ))}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+            <button className="btn btn-ghost" style={{ width: '100%', marginTop: 14 }} disabled={loading} onClick={() => generate(seed || undefined)}>
               应用参数
             </button>
           </div>
@@ -217,4 +262,24 @@ export default function CreatePage({ params }: { params: Promise<{ slug: string 
       </div>
     </main>
   );
+}
+
+function readVisitorId(): string | undefined {
+  try {
+    return getVisitorId();
+  } catch {
+    return undefined;
+  }
+}
+
+const FLIP_LABELS: Record<string, string> = {
+  none: '无',
+  horizontal: '水平',
+  vertical: '垂直',
+  both: '双向',
+};
+
+function labelFor(key: string, value: string): string {
+  if (key === 'flip') return FLIP_LABELS[value] ?? value;
+  return value.replace(/-/g, ' ');
 }

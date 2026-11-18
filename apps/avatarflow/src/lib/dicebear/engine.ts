@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { Avatar, OptionsDescriptor, Style } from '@dicebear/core';
-import type { EventTheme } from '@/lib/types';
+import type { StyleControl } from '@/lib/types';
 import { STYLE_REGISTRY, type StyleMeta } from './registry.generated';
 
 const ALLOWED = new Map<string, StyleMeta>(STYLE_REGISTRY.map((s) => [s.name, s]));
@@ -85,6 +85,102 @@ export function isStyleAllowed(name: string): boolean {
 /** Dynamically derived configurable parameters for a given style. */
 export function describeStyle(name: string): Record<string, unknown> {
   return new OptionsDescriptor(getStyle(name)).toJSON() as Record<string, unknown>;
+}
+
+const CONTROL_LABELS: Record<string, string> = {
+  scale: '缩放',
+  rotate: '旋转',
+  borderRadius: '圆角',
+  flip: '翻转',
+  body: '身体',
+  head: '头部',
+  eyes: '眼睛',
+  mouth: '嘴巴',
+  nose: '鼻子',
+  hair: '头发',
+  ears: '耳朵',
+  cheeks: '脸颊',
+  collar: '项圈',
+  pattern: '花纹',
+  tail: '尾巴',
+  brows: '眉毛',
+  beard: '胡子',
+  glasses: '眼镜',
+  accessories: '配饰',
+};
+
+const VARIANT_ORDER = ['eyes', 'mouth', 'head', 'body', 'hair', 'nose', 'ears', 'cheeks', 'collar', 'pattern', 'tail', 'brows', 'beard', 'glasses'];
+
+interface DescriptorField {
+  type?: string;
+  min?: number;
+  max?: number;
+  values?: readonly string[];
+}
+
+/**
+ * A short list of controls a visitor can actually use. The full descriptor
+ * includes seed, size, every color stop and probability; those are either
+ * owned by the page already or too noisy for a phone screen.
+ */
+export function styleControls(name: string): StyleControl[] {
+  if (!ALLOWED.has(name)) return [];
+  const desc = describeStyle(name) as Record<string, DescriptorField>;
+  const controls: StyleControl[] = [];
+
+  const ranges: Array<[string, number, number, number]> = [
+    ['scale', 0.5, 2, 0.1],
+    ['rotate', -180, 180, 1],
+    ['borderRadius', 0, 50, 1],
+  ];
+  for (const [key, min, max, step] of ranges) {
+    const field = desc[key];
+    if (!field) continue;
+    controls.push({
+      key,
+      label: CONTROL_LABELS[key] ?? key,
+      kind: 'range',
+      min: Math.max(field.min ?? min, min),
+      max: Math.min(field.max ?? max, max),
+      step,
+      defaultValue: key === 'scale' ? 1 : 0,
+    });
+  }
+
+  const flip = desc.flip;
+  if (flip?.values?.length) {
+    controls.push({
+      key: 'flip',
+      label: CONTROL_LABELS.flip ?? '翻转',
+      kind: 'select',
+      values: [...flip.values],
+      defaultValue: 'none',
+    });
+  }
+
+  const variants = Object.keys(desc)
+    .filter((key) => key.endsWith('Variant') && key !== 'sceneVariant')
+    .sort((a, b) => {
+      const ai = VARIANT_ORDER.indexOf(a.replace(/Variant$/, ''));
+      const bi = VARIANT_ORDER.indexOf(b.replace(/Variant$/, ''));
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+  for (const key of variants) {
+    if (controls.filter((c) => c.key.endsWith('Variant')).length >= 6) break;
+    const field = desc[key];
+    if (field?.type !== 'enum' || !field.values?.length || field.values.length > 24) continue;
+    const base = key.replace(/Variant$/, '');
+    controls.push({
+      key,
+      label: CONTROL_LABELS[base] ?? base,
+      kind: 'select',
+      values: [...field.values],
+      defaultValue: '',
+    });
+  }
+
+  return controls;
 }
 
 export function newSeed(): string {

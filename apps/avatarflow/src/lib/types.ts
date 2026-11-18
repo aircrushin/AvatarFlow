@@ -78,6 +78,19 @@ export interface GenerationRecord {
   createdAt: string;
 }
 
+/** A single user-facing control derived from a style's option descriptor. */
+export interface StyleControl {
+  key: string;
+  label: string;
+  kind: 'range' | 'select';
+  min?: number;
+  max?: number;
+  step?: number;
+  values?: string[];
+  /** Number for ranges. Empty string means "let the style decide" for selects. */
+  defaultValue: number | string;
+}
+
 export const DEFAULT_THEME: EventTheme = {
   logoUrl: null,
   primaryColor: '#1F2933',

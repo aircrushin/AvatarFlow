@@ -58,7 +58,11 @@ export async function POST(
         styleName: input.styleName,
         seedHash: hashSeed(seed),
       });
-      await repos().analytics.record({ eventId: event.id, eventType: 'avatar_generate' });
+      await repos().analytics.record({
+        eventId: event.id,
+        eventType: 'avatar_generate',
+        visitorId: input.visitorId,
+      });
       return new NextResponse(svg, {
         headers: {
           'Content-Type': 'image/svg+xml; charset=utf-8',
@@ -79,7 +83,11 @@ export async function POST(
       styleName: input.styleName,
       seedHash: hashSeed(seed),
     });
-    await repos().analytics.record({ eventId: event.id, eventType: 'avatar_generate' });
+    await repos().analytics.record({
+      eventId: event.id,
+      eventType: 'avatar_generate',
+      visitorId: input.visitorId,
+    });
 
     return new NextResponse(new Uint8Array(png), {
       headers: {
