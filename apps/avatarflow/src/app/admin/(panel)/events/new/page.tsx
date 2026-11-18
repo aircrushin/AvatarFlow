@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { slugFromName } from '@/lib/slug';
 import { DEFAULT_THEME, type EventTheme } from '@/lib/types';
 
 interface StyleMeta {
@@ -25,6 +26,8 @@ export default function NewEventPage() {
   const [theme, setTheme] = useState<EventTheme>(DEFAULT_THEME);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  // Once the organizer edits the slug by hand, stop overwriting it from the name.
+  const slugLocked = useRef(false);
 
   useEffect(() => {
     fetch('/api/public/styles')
@@ -78,12 +81,33 @@ export default function NewEventPage() {
           <div style={{ display: 'grid', gap: 14 }}>
             <div className="field">
               <label>活动名称</label>
-              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="例如：2026 春季品牌日" />
+              <input
+                required
+                value={form.name}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setForm((prev) => ({
+                    ...prev,
+                    name,
+                    slug: slugLocked.current ? prev.slug : slugFromName(name),
+                  }));
+                }}
+                placeholder="例如：2026 春季品牌日"
+              />
             </div>
             <div className="field">
               <label>访问路径（slug）</label>
-              <input required value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} placeholder="spring-brand-2026" />
-              <span className="faint" style={{ fontSize: 12 }}>访问链接：/e/{form.slug || 'your-slug'}</span>
+              <input
+                required
+                value={form.slug}
+                onChange={(e) => {
+                  const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+                  slugLocked.current = slug.length > 0;
+                  setForm((prev) => ({ ...prev, slug }));
+                }}
+                placeholder="spring-brand-2026"
+              />
+              <span className="faint" style={{ fontSize: 12 }}>由活动名称自动生成，也可以直接修改。访问链接：/e/{form.slug || 'your-slug'}</span>
             </div>
             <div className="field">
               <label>副标题</label>
