@@ -1,7 +1,6 @@
 import 'server-only';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { config } from '@/lib/config';
 import type { StorageAdapter, StoredObject } from './types';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
@@ -14,7 +13,10 @@ export const localStorage: StorageAdapter = {
     await fs.writeFile(dest, body);
     return {
       key: safeKey,
-      url: `${config.appUrl}/uploads/${safeKey.split(path.sep).join('/')}`,
+      // Relative URL: the browser resolves it against whichever host serves
+      // the app, so it works on localhost and after deployment without a
+      // build-time NEXT_PUBLIC_APP_URL.
+      url: `/uploads/${safeKey.split(path.sep).join('/')}`,
     };
   },
   async remove(key) {

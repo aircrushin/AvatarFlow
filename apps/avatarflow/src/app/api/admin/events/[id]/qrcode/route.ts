@@ -19,7 +19,15 @@ export async function GET(
 
     const url = new URL(req.url);
     const format = url.searchParams.get('format') ?? 'png';
-    const target = `${config.appUrl.replace(/\/$/, '')}/e/${event.slug}`;
+    // Prefer the actual request host (reverse proxies set X-Forwarded-*), so
+    // the QR code points at the deployed public domain rather than a build-time
+    // NEXT_PUBLIC_APP_URL. Fall back to the configured app URL for local use.
+    const forwardedHost = req.headers.get('x-forwarded-host');
+    const host = forwardedHost ?? req.headers.get('host');
+    const forwardedProto = req.headers.get('x-forwarded-proto');
+    const proto = forwardedProto ?? (host && /localhost|127\.0\.0\.1/.test(host) ? 'http' : 'https');
+    const origin = host ? `${proto}://${host}` : config.appUrl.replace(/\/$/, '');
+    const target = `${origin.replace(/\/$/, '')}/e/${event.slug}`;
 
     if (format === 'svg') {
       const svg = await QRCode.toString(target, {

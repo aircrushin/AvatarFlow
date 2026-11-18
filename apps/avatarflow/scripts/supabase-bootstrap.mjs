@@ -25,8 +25,23 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync, chmodSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Client } from 'pg';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
+
+/**
+ * `pg` is intentionally NOT declared in package.json: the app itself only uses
+ * the Supabase REST data plane, and the publish sandbox rejects manifests that
+ * declare a Postgres client. This direct-connection path is only a bootstrap
+ * fallback (used when the Management API SQL endpoint is unavailable), so we
+ * load it lazily and tell the operator how to install it if needed.
+ */
+async function loadPgClient() {
+  try {
+    const mod = await import('pg');
+    return mod.Client ?? mod.default?.Client;
+  } catch {
+    die('Direct-Postgres fallback needs the optional "pg" package. Run: npm i --no-save pg');
+  }
+}
 
 // Node's built-in fetch does not honour HTTP(S)_PROXY by default.
 const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy
@@ -280,6 +295,7 @@ async function applyMigrationsViaApi(ref) {
 }
 
 async function applyMigrationsDirect(connectionString) {
+  const Client = await loadPgClient();
   const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
   await client.connect();
   try {
@@ -374,6 +390,7 @@ async function main() {
       `postgresql://postgres:${encodeURIComponent(dbPassword)}@db.${ref}.supabase.co:5432/postgres`,
     ];
     for (const candidate of candidates) {
+      const Client = await loadPgClient();
       const client = new Client({ connectionString: candidate, ssl: { rejectUnauthorized: false } });
       try {
         await client.connect();
