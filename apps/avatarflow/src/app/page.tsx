@@ -1,4 +1,20 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { SITE_DESCRIPTION, SITE_TITLE, absoluteUrl } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  title: {
+    absolute: SITE_TITLE,
+  },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    url: absoluteUrl('/'),
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+};
 
 const capabilities = [
   {
@@ -28,9 +44,29 @@ const capabilities = [
   },
 ];
 
+const softwareStructuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'AvatarFlow',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  url: absoluteUrl('/'),
+  description: SITE_DESCRIPTION,
+  offers: {
+    '@type': 'Offer',
+    price: '699',
+    priceCurrency: 'CNY',
+    description: '试点服务起步价',
+  },
+};
+
 export default function HomePage() {
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareStructuredData) }}
+      />
       <header style={{ borderBottom: '1px solid var(--line)' }}>
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 68 }}>
           <Link href="/" style={{ fontWeight: 600, letterSpacing: '-0.02em' }}>

@@ -1,9 +1,24 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { repos } from '@/lib/db';
 import { effectiveStatus } from '@/lib/events';
+import { absoluteUrl } from '@/lib/seo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: '演示活动',
+  description:
+    '浏览 AvatarFlow 已发布的品牌头像互动活动演示，查看真实配置效果并直接进入头像定制流程。',
+  alternates: { canonical: '/showcase' },
+  openGraph: {
+    type: 'website',
+    url: absoluteUrl('/showcase'),
+    title: '演示活动 · AvatarFlow',
+    description: '浏览 AvatarFlow 已发布的品牌头像互动活动演示。',
+  },
+};
 
 export default async function ShowcasePage() {
   const events = (await repos().events.list()).filter(

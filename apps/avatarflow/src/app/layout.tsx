@@ -1,13 +1,46 @@
 import type { Metadata, Viewport } from 'next';
+import {
+  SITE_DESCRIPTION,
+  SITE_KEYWORDS,
+  SITE_LOCALE,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+  absoluteUrl,
+} from '@/lib/seo';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: 'AvatarFlow — 企业品牌头像互动平台',
+    default: SITE_TITLE,
     template: '%s · AvatarFlow',
   },
-  description:
-    '企业上传 Logo，配置品牌色与头像风格，几分钟内生成可扫码参与的移动端头像互动活动。',
+  description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
+  applicationName: SITE_NAME,
+  authors: [{ name: SITE_NAME }],
+  category: 'business',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    locale: SITE_LOCALE,
+    url: absoluteUrl('/'),
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export const viewport: Viewport = {
@@ -17,10 +50,38 @@ export const viewport: Viewport = {
   themeColor: '#f7f8f5',
 };
 
+/** Organization + WebSite structured data, shared by every public page. */
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${absoluteUrl('/')}#organization`,
+      name: SITE_NAME,
+      url: absoluteUrl('/'),
+      description: SITE_DESCRIPTION,
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${absoluteUrl('/')}#website`,
+      url: absoluteUrl('/'),
+      name: SITE_NAME,
+      inLanguage: 'zh-CN',
+      publisher: { '@id': `${absoluteUrl('/')}#organization` },
+    },
+  ],
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
