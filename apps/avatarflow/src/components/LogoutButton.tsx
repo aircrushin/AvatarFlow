@@ -1,18 +1,21 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { IconLogout } from './admin/icons';
 
 export function LogoutButton() {
   const router = useRouter();
   return (
     <button
+      type="button"
+      className="adm-nav-item"
       onClick={async () => {
         await fetch('/api/admin/logout', { method: 'POST' });
         router.push('/admin/login');
         router.refresh();
       }}
-      style={{ fontSize: 12, color: '#7d828a', padding: '12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
     >
+      <IconLogout />
       退出登录
     </button>
   );

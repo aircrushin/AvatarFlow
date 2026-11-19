@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { repos } from '@/lib/db';
 import { QrPanel, LogoUpload } from './widgets';
@@ -12,24 +11,30 @@ export default async function AssetsPage({ params }: { params: Promise<{ id: str
   if (!event) notFound();
 
   return (
-    <main style={{ maxWidth: 820 }}>
-      <Link href={`/admin/events/${id}`} className="faint" style={{ fontSize: 13 }}>← 返回配置</Link>
-      <p className="eyebrow" style={{ marginTop: 20 }}>Assets</p>
-      <h1 style={{ fontSize: 26, letterSpacing: '-0.025em', margin: '8px 0 28px' }}>素材管理 · {event.name}</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
-        <section className="card" style={{ padding: 24 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 6 }}>品牌 Logo</h2>
-          <p className="faint" style={{ fontSize: 12, marginBottom: 18 }}>PNG / JPEG / WebP / SVG，最大 2MB</p>
+    <div className="adm-grid-2 adm-grid-2-alt adm-rise">
+      <section className="adm-card">
+        <div className="adm-card-head">
+          <div>
+            <h2 className="adm-card-title">品牌 Logo</h2>
+            <p className="adm-card-desc">显示在活动页顶部，替换后即时生效</p>
+          </div>
+        </div>
+        <div className="adm-card-body">
           <LogoUpload eventId={event.id} currentUrl={event.theme.logoUrl} />
-        </section>
+        </div>
+      </section>
 
-        <section className="card" style={{ padding: 24 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 6 }}>活动二维码</h2>
-          <p className="faint" style={{ fontSize: 12, marginBottom: 18 }}>扫码直达活动页面</p>
+      <section className="adm-card">
+        <div className="adm-card-head">
+          <div>
+            <h2 className="adm-card-title">活动二维码</h2>
+            <p className="adm-card-desc">用于海报、展台与现场物料，扫码直达活动页</p>
+          </div>
+        </div>
+        <div className="adm-card-body">
           <QrPanel eventId={event.id} slug={event.slug} />
-        </section>
-      </div>
-    </main>
+        </div>
+      </section>
+    </div>
   );
 }

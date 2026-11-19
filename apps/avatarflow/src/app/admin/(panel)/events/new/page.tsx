@@ -1,27 +1,29 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { slugFromName } from '@/lib/slug';
-import { DEFAULT_THEME, type EventTheme } from '@/lib/types';
-
-interface StyleMeta {
-  name: string;
-  label: string;
-  license: string;
-  author: string;
-}
+import { DEFAULT_THEME, type EventStatus, type EventTheme } from '@/lib/types';
+import {
+  ColorField,
+  PhonePreview,
+  StatusPicker,
+  StylePicker,
+  type StyleOption,
+} from '@/components/admin/EventFormParts';
+import { STATUS_LABEL } from '@/components/admin/StatusBadge';
 
 export default function NewEventPage() {
   const router = useRouter();
-  const [styles, setStyles] = useState<StyleMeta[]>([]);
+  const [styles, setStyles] = useState<StyleOption[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [form, setForm] = useState({
     slug: '',
     name: '',
     subtitle: '',
     description: '',
-    status: 'draft',
+    status: 'draft' as EventStatus,
   });
   const [theme, setTheme] = useState<EventTheme>(DEFAULT_THEME);
   const [error, setError] = useState('');
@@ -34,13 +36,10 @@ export default function NewEventPage() {
       .then((r) => r.json())
       .then((d) => {
         setStyles(d.styles);
-        setSelected(d.styles.slice(0, 3).map((s: StyleMeta) => s.name));
+        setSelected(d.styles.slice(0, 3).map((s: StyleOption) => s.name));
       })
       .catch(() => setError('无法加载风格列表'));
   }, []);
-
-  const toggleStyle = (name: string) =>
-    setSelected((prev) => (prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]));
 
   const setThemeField = <K extends keyof EventTheme>(key: K, value: EventTheme[K]) =>
     setTheme((prev) => ({ ...prev, [key]: value }));
@@ -71,118 +70,149 @@ export default function NewEventPage() {
   };
 
   return (
-    <main style={{ maxWidth: 760 }}>
-      <p className="eyebrow">New event</p>
-      <h1 style={{ fontSize: 28, letterSpacing: '-0.025em', margin: '10px 0 32px' }}>新建活动</h1>
+    <main className="adm-page">
+      <div className="adm-crumbs">
+        <Link href="/admin/events">活动管理</Link>
+        <span aria-hidden>/</span>
+        <span style={{ color: 'var(--a-ink-2)' }}>新建</span>
+      </div>
+      <header className="adm-head adm-rise">
+        <div>
+          <h1 className="adm-title">新建活动</h1>
+          <p className="adm-sub">填写基础信息、挑选头像风格并设定品牌配色。Logo 与二维码可在创建后配置。</p>
+        </div>
+      </header>
 
-      <form onSubmit={submit}>
-        <section className="card" style={{ padding: 24, marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 20 }}>基础信息</h2>
-          <div style={{ display: 'grid', gap: 14 }}>
-            <div className="field">
-              <label>活动名称</label>
-              <input
-                required
-                value={form.name}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setForm((prev) => ({
-                    ...prev,
-                    name,
-                    slug: slugLocked.current ? prev.slug : slugFromName(name),
-                  }));
-                }}
-                placeholder="例如：2026 春季品牌日"
-              />
+      <form onSubmit={submit} className="adm-split adm-rise adm-rise-1">
+        <div>
+          <section className="adm-card adm-section">
+            <div className="adm-card-head">
+              <div>
+                <h2 className="adm-card-title"><StepNo n={1} />基础信息</h2>
+              </div>
             </div>
-            <div className="field">
-              <label>访问路径（slug）</label>
-              <input
-                required
-                value={form.slug}
-                onChange={(e) => {
-                  const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-                  slugLocked.current = slug.length > 0;
-                  setForm((prev) => ({ ...prev, slug }));
-                }}
-                placeholder="spring-brand-2026"
-              />
-              <span className="faint" style={{ fontSize: 12 }}>由活动名称自动生成，也可以直接修改。访问链接：/e/{form.slug || 'your-slug'}</span>
+            <div className="adm-card-body adm-form-grid">
+              <div className="adm-field">
+                <label htmlFor="new-name">活动名称</label>
+                <input
+                  id="new-name"
+                  required
+                  autoFocus
+                  maxLength={120}
+                  value={form.name}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setForm((prev) => ({
+                      ...prev,
+                      name,
+                      slug: slugLocked.current ? prev.slug : slugFromName(name),
+                    }));
+                  }}
+                  placeholder="例如：2026 春季品牌日"
+                />
+              </div>
+              <div className="adm-field">
+                <div className="adm-label-row">
+                  <label htmlFor="new-slug">访问路径</label>
+                  <span className="adm-hint">根据名称自动生成，可手动修改</span>
+                </div>
+                <div className="adm-prefix">
+                  <span>/e/</span>
+                  <input
+                    id="new-slug"
+                    required
+                    className="adm-mono"
+                    value={form.slug}
+                    onChange={(e) => {
+                      const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+                      slugLocked.current = slug.length > 0;
+                      setForm((prev) => ({ ...prev, slug }));
+                    }}
+                    placeholder="spring-brand-2026"
+                  />
+                </div>
+              </div>
+              <div className="adm-field">
+                <label htmlFor="new-sub">副标题</label>
+                <input id="new-sub" maxLength={200} value={form.subtitle} placeholder="一句话说明活动亮点" onChange={(e) => setForm({ ...form, subtitle: e.target.value })} />
+              </div>
+              <div className="adm-field">
+                <div className="adm-label-row">
+                  <label htmlFor="new-desc">活动说明</label>
+                  <span className="adm-hint">留空时使用「用户端短文案」</span>
+                </div>
+                <textarea id="new-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              </div>
+              <div className="adm-field">
+                <span className="adm-label">初始状态</span>
+                <StatusPicker value={form.status} options={['draft', 'active', 'paused']} onChange={(status) => setForm({ ...form, status })} />
+              </div>
             </div>
-            <div className="field">
-              <label>副标题</label>
-              <input value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} />
-            </div>
-            <div className="field">
-              <label>活动说明</label>
-              <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            </div>
-            <div className="field">
-              <label>状态</label>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="draft">草稿</option>
-                <option value="active">进行中</option>
-                <option value="paused">暂停</option>
-              </select>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="card" style={{ padding: 24, marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 20 }}>品牌主题</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
-            <ColorField label="主色" value={theme.primaryColor} onChange={(v) => setThemeField('primaryColor', v)} />
-            <ColorField label="辅助色" value={theme.secondaryColor} onChange={(v) => setThemeField('secondaryColor', v)} />
-            <ColorField label="背景色" value={theme.backgroundColor} onChange={(v) => setThemeField('backgroundColor', v)} />
-            <ColorField label="头像背景" value={theme.avatarBackground} onChange={(v) => setThemeField('avatarBackground', v)} />
-          </div>
-          <div className="field" style={{ marginTop: 14 }}>
-            <label>活动说明（用户端短文案）</label>
-            <textarea value={theme.instructions} onChange={(e) => setThemeField('instructions', e.target.value)} />
-          </div>
-        </section>
+          <section className="adm-card adm-section">
+            <div className="adm-card-head">
+              <div>
+                <h2 className="adm-card-title"><StepNo n={2} />头像风格</h2>
+                <p className="adm-card-desc">点选的顺序即用户端展示顺序，仅包含已审核的 CC0 商用风格</p>
+              </div>
+              <span className="adm-mono adm-faint">{selected.length} / {styles.length || '—'}</span>
+            </div>
+            <div className="adm-card-body">
+              <StylePicker styles={styles} selected={selected} onChange={setSelected} />
+            </div>
+          </section>
 
-        <section className="card" style={{ padding: 24, marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 6 }}>头像风格</h2>
-          <p className="faint" style={{ fontSize: 12, marginBottom: 18 }}>仅可选择已审核的 CC0 商用风格。</p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {styles.map((s) => (
-              <button
-                key={s.name}
-                type="button"
-                onClick={() => toggleStyle(s.name)}
-                className="btn btn-ghost"
-                style={{
-                  minHeight: 34, fontSize: 12, padding: '0 12px',
-                  borderColor: selected.includes(s.name) ? 'var(--ink)' : 'var(--line)',
-                  background: selected.includes(s.name) ? 'var(--ink)' : 'transparent',
-                  color: selected.includes(s.name) ? '#fff' : 'var(--ink)',
-                }}
-              >
-                {s.label}
+          <section className="adm-card adm-section">
+            <div className="adm-card-head">
+              <div>
+                <h2 className="adm-card-title"><StepNo n={3} />品牌主题</h2>
+                <p className="adm-card-desc">边框、贴纸等更多选项可在创建后调整</p>
+              </div>
+            </div>
+            <div className="adm-card-body adm-form-grid">
+              <div className="adm-form-row">
+                <ColorField label="主色" value={theme.primaryColor} onChange={(v) => setThemeField('primaryColor', v)} />
+                <ColorField label="辅助色" value={theme.secondaryColor} onChange={(v) => setThemeField('secondaryColor', v)} />
+                <ColorField label="页面背景" value={theme.backgroundColor} onChange={(v) => setThemeField('backgroundColor', v)} />
+                <ColorField label="头像底色" value={theme.avatarBackground} onChange={(v) => setThemeField('avatarBackground', v)} />
+              </div>
+              <div className="adm-field">
+                <label htmlFor="new-ins">用户端短文案</label>
+                <textarea id="new-ins" maxLength={1000} value={theme.instructions} onChange={(e) => setThemeField('instructions', e.target.value)} />
+              </div>
+            </div>
+          </section>
+
+          <div className="adm-savebar" data-state={error ? 'error' : 'dirty'}>
+            <div className="adm-savebar-status">
+              <i />
+              {error || (selected.length === 0 ? '请至少选择一个头像风格' : `将以「${STATUS_LABEL[form.status]}」状态创建`)}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <Link href="/admin/events" className="adm-btn adm-btn-sm" style={{ background: 'transparent', borderColor: '#3a3d43', color: '#c4c8bf' }}>取消</Link>
+              <button className="adm-btn adm-btn-lime adm-btn-sm" type="submit" disabled={saving || selected.length === 0 || !form.name || !form.slug}>
+                {saving ? '创建中…' : '创建活动'}
               </button>
-            ))}
+            </div>
           </div>
-          {selected.length === 0 && <p className="error-msg" style={{ marginTop: 12 }}>请至少选择一个风格</p>}
-        </section>
+        </div>
 
-        {error && <p className="error-msg" style={{ marginBottom: 12 }}>{error}</p>}
-        <button className="btn btn-accent" type="submit" disabled={saving || selected.length === 0}>
-          {saving ? '创建中…' : '创建活动'}
-        </button>
+        <aside className="adm-sticky">
+          <PhonePreview name={form.name} subtitle={form.subtitle} description={form.description} theme={theme} styleName={selected[0]} />
+        </aside>
       </form>
     </main>
   );
 }
 
-function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function StepNo({ n }: { n: number }) {
   return (
-    <div className="field">
-      <label>{label}</label>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 44, minHeight: 40, padding: 2, cursor: 'pointer' }} />
-        <input value={value} onChange={(e) => onChange(e.target.value)} className="mono" style={{ flex: 1 }} />
-      </div>
-    </div>
+    <span
+      className="adm-mono"
+      style={{ display: 'inline-grid', placeItems: 'center', width: 20, height: 20, marginRight: 10, borderRadius: 6, background: 'var(--a-ink)', color: 'var(--a-lime)', fontSize: 11, verticalAlign: '1px' }}
+    >
+      {n}
+    </span>
   );
 }

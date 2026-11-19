@@ -19,6 +19,17 @@ export const localStorage: StorageAdapter = {
       url: `/uploads/${safeKey.split(path.sep).join('/')}`,
     };
   },
+  async get(url) {
+    const prefix = '/uploads/';
+    if (!url.startsWith(prefix)) return null;
+    const safeKey = path.normalize(url.slice(prefix.length)).replace(/^(\.\.[/\\])+/, '');
+    try {
+      return await fs.readFile(path.join(UPLOAD_DIR, safeKey));
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw err;
+    }
+  },
   async remove(key) {
     const safeKey = path.normalize(key).replace(/^(\.\.[/\\])+/, '');
     try {

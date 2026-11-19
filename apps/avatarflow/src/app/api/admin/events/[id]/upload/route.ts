@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiError, handleError } from '@/lib/api';
 import { requireAdmin } from '@/lib/auth';
+import { extractBrandColors } from '@/lib/brand-color';
 import { config } from '@/lib/config';
 import { repos } from '@/lib/db';
 import { storage } from '@/lib/storage';
@@ -67,14 +68,22 @@ export async function POST(
     if (!validateImage(bytes, mime)) return apiError('文件内容与声明的类型不符', 415);
     if (mime === 'image/svg+xml') bytes = sanitizeSvg(bytes);
 
+    // Extract brand colors from the uploaded bytes while they are in hand;
+    // the storage adapters are write-only by design outside this flow.
+    const colors = await extractBrandColors(bytes);
+
     const key = `logos/${event.id}/${randomUUID()}.${ext}`;
     const stored = await storage().put({ key, body: bytes, contentType: mime });
 
-    const updated = await repos().events.update(id, {
-      theme: { ...event.theme, logoUrl: stored.url },
-    });
+    const theme = { ...event.theme, logoUrl: stored.url };
+    if (colors) {
+      theme.primaryColor = colors.primaryColor;
+      theme.secondaryColor = colors.secondaryColor;
+    }
+
+    const updated = await repos().events.update(id, { theme });
     if (!updated) return apiError('活动不存在', 404);
-    return NextResponse.json({ url: stored.url });
+    return NextResponse.json({ url: stored.url, colors });
   } catch (err) {
     return handleError(err);
   }

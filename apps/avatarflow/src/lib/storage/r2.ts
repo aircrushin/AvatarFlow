@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -35,6 +36,15 @@ export const r2Storage: StorageAdapter = {
       }),
     );
     return { key, url: publicUrl(key) };
+  },
+  async get(url) {
+    const base = `${config.r2.publicUrl.replace(/\/$/, '')}/`;
+    if (!url.startsWith(base)) return null;
+    const res = await client().send(
+      new GetObjectCommand({ Bucket: config.r2.bucket, Key: url.slice(base.length) }),
+    );
+    if (!res.Body) return null;
+    return Buffer.from(await res.Body.transformToByteArray());
   },
   async remove(key) {
     await client().send(new DeleteObjectCommand({ Bucket: config.r2.bucket, Key: key }));
