@@ -8,20 +8,38 @@ interface Bucket {
 }
 
 /**
- * Next.js dev compiles route handlers in a worker pool. A module-level Map
- * lives in whichever worker handled the request, so a 60/min limit silently
- * becomes 60 per worker. Buckets are stored in a lock file every process on
- * this machine can see. If the disk is not writable, fall back to a
- * process-wide Map (still shared across duplicate module copies via globalThis).
+ * Storage backend for the limiter. `withLock` serializes the read-modify-write
+ * cycle; `read`/`write` persist buckets. Implementations can use a lock file
+ * (cross-process sharing in dev), memory (Workers, tests), or Redis
+ * (multi-instance production).
  */
+export interface RateLimitStore {
+  withLock<T>(fn: () => T): T;
+  read(): Record<string, Bucket>;
+  write(data: Record<string, Bucket>): void;
+}
+
 const DATA_DIR = path.join(process.cwd(), '.data');
 const STORE = path.join(DATA_DIR, 'rate-limit.json');
 const LOCK = path.join(DATA_DIR, 'rate-limit.lock');
 
-function memoryStore(): Map<string, Bucket> {
-  const g = globalThis as typeof globalThis & { __avatarflowRateBuckets?: Map<string, Bucket> };
-  g.__avatarflowRateBuckets ??= new Map();
+/** Buckets shared across duplicate module copies via globalThis. */
+function memoryBuckets(): Record<string, Bucket> {
+  const g = globalThis as typeof globalThis & { __avatarflowRateBuckets?: Record<string, Bucket> };
+  g.__avatarflowRateBuckets ??= {};
   return g.__avatarflowRateBuckets;
+}
+
+/** In-process backend. Used in Workers (no fs) and tests. */
+export function createMemoryStore(): RateLimitStore {
+  const g = globalThis as typeof globalThis & { __avatarflowRateBuckets?: Record<string, Bucket> };
+  return {
+    withLock: (fn) => fn(),
+    read: () => ({ ...memoryBuckets() }),
+    write: (data) => {
+      g.__avatarflowRateBuckets = data;
+    },
+  };
 }
 
 function readStore(): Record<string, Bucket> {
@@ -58,7 +76,6 @@ function sleepMs(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-/** Returns the lock fd, or undefined when the lock cannot be taken. */
 function acquireLock(): number | undefined {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const start = Date.now();
@@ -93,7 +110,31 @@ function releaseLock(fd: number): void {
   }
 }
 
-function decide(current: Bucket | undefined, limit: number, windowMs: number, now: number): { allowed: boolean; bucket: Bucket } {
+/**
+ * File-backed backend: shares buckets across the Next.js dev worker pool via a
+ * lock file. A failed lock or disk I/O is signalled by throwing, which makes
+ * the limiter fall back to the in-process store.
+ */
+const fileStore: RateLimitStore = {
+  withLock(fn) {
+    const fd = acquireLock();
+    if (fd === undefined) throw new Error('rate-limit lock unavailable');
+    try {
+      return fn();
+    } finally {
+      releaseLock(fd);
+    }
+  },
+  read: readStore,
+  write: writeStore,
+};
+
+function decide(
+  current: Bucket | undefined,
+  limit: number,
+  windowMs: number,
+  now: number,
+): { allowed: boolean; bucket: Bucket } {
   if (!current || current.resetAt <= now) {
     return { allowed: true, bucket: { count: 1, resetAt: now + windowMs } };
   }
@@ -101,34 +142,40 @@ function decide(current: Bucket | undefined, limit: number, windowMs: number, no
   return { allowed: true, bucket: { count: current.count + 1, resetAt: current.resetAt } };
 }
 
+/** Fallback when the primary store throws (read-only fs, Workers, lock busy). */
 function consumeMemory(key: string, limit: number, windowMs: number): boolean {
-  const store = memoryStore();
-  const result = decide(store.get(key), limit, windowMs, Date.now());
-  store.set(key, result.bucket);
+  const store = createMemoryStore();
+  const now = Date.now();
+  const data = store.read();
+  for (const name of Object.keys(data)) {
+    if (data[name]!.resetAt <= now) delete data[name];
+  }
+  const result = decide(data[key], limit, windowMs, now);
+  data[key] = result.bucket;
+  store.write(data);
   return result.allowed;
 }
 
-/**
- * Fixed-window limiter. Returns true when the request is allowed.
- * `limit` counts successful admissions in `windowMs` (default 60s).
- */
-export function rateLimit(key: string, limit: number, windowMs = 60_000): boolean {
-  let fd: number | undefined;
-  try {
-    fd = acquireLock();
-    if (fd === undefined) return consumeMemory(key, limit, windowMs);
-    const now = Date.now();
-    const store = readStore();
-    for (const name of Object.keys(store)) {
-      if (store[name]!.resetAt <= now) delete store[name];
+/** Build a limiter on top of `store`. */
+export function createRateLimiter(store: RateLimitStore) {
+  return function rateLimit(key: string, limit: number, windowMs = 60_000): boolean {
+    try {
+      return store.withLock(() => {
+        const now = Date.now();
+        const data = store.read();
+        for (const name of Object.keys(data)) {
+          if (data[name]!.resetAt <= now) delete data[name];
+        }
+        const result = decide(data[key], limit, windowMs, now);
+        data[key] = result.bucket;
+        store.write(data);
+        return result.allowed;
+      });
+    } catch {
+      return consumeMemory(key, limit, windowMs);
     }
-    const result = decide(store[key], limit, windowMs, now);
-    store[key] = result.bucket;
-    writeStore(store);
-    return result.allowed;
-  } catch {
-    return consumeMemory(key, limit, windowMs);
-  } finally {
-    if (fd !== undefined) releaseLock(fd);
-  }
+  };
 }
+
+/** Default limiter: cross-process file backend with in-process fallback. */
+export const rateLimit = createRateLimiter(fileStore);
