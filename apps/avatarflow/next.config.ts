@@ -3,8 +3,10 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: 'standalone',
-  // Native addons must be required at runtime, not bundled into ESM chunks.
-  serverExternalPackages: ['@resvg/resvg-js', 'sharp'],
+  // Cloudflare Workers cannot load native addons; WASM packages must be
+  // externalized so wrangler bundles their wasm unbundled.
+  serverExternalPackages: ['@cf-wasm/photon', '@cf-wasm/resvg', '@jsquash/webp'],
+  images: { unoptimized: true },
   experimental: {
     serverActions: { bodySizeLimit: '8mb' },
   },

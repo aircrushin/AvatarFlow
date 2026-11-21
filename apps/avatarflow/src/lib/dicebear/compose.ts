@@ -1,7 +1,6 @@
 import 'server-only';
-import { Resvg } from '@resvg/resvg-js';
-import sharp from 'sharp';
 import type { EventTheme } from '@/lib/types';
+import { alphaOver, encodePng, svgToRgba } from '@/lib/media/image-codec';
 import { renderAvatarSvg } from './engine';
 
 export interface ComposeInput {
@@ -63,24 +62,14 @@ export async function composePng(input: ComposeInput): Promise<Buffer> {
   const bgSvg = backgroundSvg(size, theme);
   const decorSvg = decorationSvg(size, theme);
 
-  const avatarPng = new Resvg(avatarSvg, { fitTo: { mode: 'width', value: size } })
-    .render()
-    .asPng();
-  const bgPng = new Resvg(bgSvg, { fitTo: { mode: 'width', value: size } })
-    .render()
-    .asPng();
-  const decorPng = new Resvg(decorSvg, { fitTo: { mode: 'width', value: size } })
-    .render()
-    .asPng();
+  // Layer 1/2/3 -> RGBA via resvg WASM (with bundled font so sticker <text> survives).
+  const bg = await svgToRgba(bgSvg, size);
+  const avatar = await svgToRgba(avatarSvg, size);
+  const decor = await svgToRgba(decorSvg, size);
 
   // Layer 4: export — Background → Avatar → Brand Decoration → PNG.
-  return sharp(bgPng)
-    .composite([
-      { input: avatarPng, top: 0, left: 0 },
-      { input: decorPng, top: 0, left: 0 },
-    ])
-    .png({ compressionLevel: 9 })
-    .toBuffer();
+  // Standard source-over compositing, matching sharp.composite semantics.
+  return encodePng(alphaOver(alphaOver(bg, avatar), decor));
 }
 
 /** SVG-only export (avatar layer, no rasterization). */

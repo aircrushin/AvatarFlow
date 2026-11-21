@@ -10,7 +10,7 @@
 - `apps/avatarflow` — 本应用
 - `apps/docs`、`apps/editor` — DiceBear 原有应用，保持不动
 
-引擎能力（Seed 确定性生成、动态参数、SVG 输出）直接复用 `@dicebear/core`；PNG 导出使用 `@resvg/resvg-js` 与 `sharp` 完成分层合成。
+引擎能力（Seed 确定性生成、动态参数、SVG 输出）直接复用 `@dicebear/core`；PNG 导出在 Node 下用 `@resvg/resvg-js` + `sharp` 完成分层合成，在 Cloudflare Workers 下用纯 WASM 编解码器（`@cf-wasm/*`）完成等效合成。
 
 ## 快速开始
 
@@ -103,7 +103,7 @@ DiceBear 共 63 个风格，其中 44 个 CC0、14 个 CC BY 4.0（需署名）�
 1. Background Layer（品牌背景色）
 2. Avatar Layer（DiceBear 透明底头像）
 3. Brand Decoration Layer（边框 + 品牌贴纸，位于头像之上）
-4. Export Layer（resvg + sharp 合成为 1024px 高清 PNG）
+4. Export Layer（Node: resvg + sharp / Workers: WASM codec，合成为 1024px 高清 PNG）
 
 所有用户输入在拼入 SVG 前均做 XML 转义；Logo 上传校验 MIME 与魔数，SVG 会剥离脚本与事件处理器。
 
@@ -115,32 +115,46 @@ DiceBear 共 63 个风格，其中 44 个 CC0、14 个 CC BY 4.0（需署名）�
 
 ```bash
 npm run type-check   # TypeScript 严格检查
-npm test             # 单元测试（引擎确定性 / 许可证白名单 / 校验 / 限流）
+npm test             # 单元测试（引擎确定性 / 许可证白名单 / 校验 / 限流 / WASM codec）
 npm run build        # 生产构建
 npm run db:migrate     # 查看数据库迁移文件
 npm run db:bootstrap   # 用 PAT 创建/绑定 Supabase 项目并自动迁移
 npm run db:verify      # 验证 Supabase 绑定与 REST 连通性
+npm run cf:build       # OpenNext Cloudflare 构建
+npm run cf:preview     # 本地 workerd 预览
+npm run cf:deploy      # 部署到 Cloudflare Workers
 ```
 
 ## 验证状态
 
 - 本地端到端：管理员登录鉴权、活动创建、公开访问、SVG/PNG 生成、相同 Seed 复现、不同 Seed 差异、非白名单风格拒绝、二维码、统计记录。
-- 23 项单元测试通过，TypeScript 严格检查通过，生产构建通过（25 条路由）。
-- 公网部署（Supabase 后端）已验证：页面与 API 可访问、沙箱可读到 Supabase 数据、SVG/PNG 生成成功、`resvg-js`/`sharp` 原生模块在沙箱可用、生成与统计数据写入 Supabase 成功。
+- 51 项单元测试通过（含 WASM codec 5 项），TypeScript 严格检查通过，OpenNext Cloudflare 构建成功。
+- 线上（Cloudflare Workers + Supabase）：首页 / robots.txt / 静态资源 / 公开 API 均 200；Cloudflare → Supabase 可达；PNG 合成与 Logo 提色在真实 workerd 运行时验证通过。
+- 数据迁移已完成：2 个活动、235 条生成记录、39 条统计记录写入线上 Supabase，showcase 可见演示活动。
 
-## 公网部署
+## 公网部署（Cloudflare Workers）
 
-已用内置「发布为应用」能力上线，后端切换为 Supabase（数据落在 PostgreSQL，不再依赖本地文件）。为适配托管沙箱做了三处调整：
+正式部署目标为 Cloudflare Workers（OpenNext Cloudflare 适配器），线上域名 `https://avatarflow.1216564567.workers.dev`。**不再使用托管沙箱版。**
 
-- `pg` 只在 bootstrap 的一次性降级路径按需动态加载，不进入运行时依赖清单（沙箱预检会把 `pg` 误判为外部数据库依赖）。
-- 本地存储的 Logo 返回相对 `/uploads/...` URL，二维码从请求头 `X-Forwarded-Host` / `Host` 推导公网 origin，均不再依赖构建期 `NEXT_PUBLIC_APP_URL`。
-- 沙箱启动命令：`npm run build && npm start`（`next start` 默认绑定 `0.0.0.0`，端口由沙箱以 `PORT` 注入）。
+- Workers 不能加载原生 addon，头像合成与 Logo 提色已改为纯 WASM：`@cf-wasm/photon`、`@cf-wasm/resvg`、`@jsquash/webp`；字体以 base64 内联（Geist，OFL），避免 Workers 文件系统依赖。Node 测试仍可用 `sharp` 做基准对照。
+- 部署命令：
 
-注意：Cloudflare R2 未配置时，上传的 Logo 存在沙箱本地文件系统，实例重建后会丢失；正式交付建议配置 R2。限流为单进程内存实现，多实例部署需换 Redis/Upstash。
+```bash
+npm run cf:build
+node scripts/cf-secrets.mjs | npx wrangler secret bulk avatarflow
+npx wrangler deploy
+```
+
+- `.env.local` 与 `wrangler.toml` 的 `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_APP_URL` 必须同为真实 workers.dev 域名——它们是构建期内联变量，决定 canonical / sitemap / og:url。
+- secrets 从 `.env.local` 读取后经 stdin 注入，不落盘、不进仓库；`wrangler secret bulk` 从 stdin 读单个 JSON 对象。
+- Windows 下 OpenNext 构建 symlink 会报 `EPERM`，需给 `node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js` 打 junction 降级补丁（重装依赖后需重打）。
+- 本机网络对 workers.dev / supabase.co 出口受限，线上验证通过 Service Binding 中转 Worker 完成；这是本机网络问题，非应用故障。
+
+注意：限流为单进程内存实现，多实例部署需换 Redis/Upstash。
 
 ## 已知边界
 
 - 管理端为单管理员（环境变量密码），无 RBAC（符合第一版要求）。
 - 在线支付、AI 生图、多租户计费等 P2 功能未实现（按规范禁止投入）。
-- 公网链接由发布平台网关以 sharecode 保护；裸域名直连 API / 静态资源会返回 403，属预期行为（真实用户经带 sharecode 的链接访问时正常加载）。
+- Cloudflare 版无发布平台网关的 sharecode 保护，裸域名可直接访问；如需访问控制请在上层加 Cloudflare Access 或 WAF 规则。
 - 微信内置浏览器：result 页在检测到微信/企微 UA 时，把 PNG 渲染为可长按保存的 `<img>`（微信忽略 `a.download`），分享改为引导右上角菜单；跨页预览改用 SVG data URL，避免 blob URL 导航后失效。真机验收仍需在微信内实际跑一遍。

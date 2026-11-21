@@ -16,3 +16,6 @@ dist-nuget
 # WorkBuddy local workspace data
 .workbuddy/
 .wbapp_*.genie
+
+# Wrangler local state
+.wrangler/

@@ -13,3 +13,7 @@ out/
 
 # Build info
 *.tsbuildinfo
+
+# Cloudflare / OpenNext build artifacts
+.open-next/
+.wrangler/

@@ -1,5 +1,5 @@
 import 'server-only';
-import sharp from 'sharp';
+import { decodeLogo } from '@/lib/media/image-codec';
 
 /** Two HEX colors derived from a brand logo. */
 export interface BrandColors {
@@ -71,27 +71,22 @@ function tint(color: Rgb): string {
  * Supported inputs match the logo upload allowlist: PNG, JPEG, WebP, SVG.
  */
 export async function extractBrandColors(bytes: Buffer): Promise<BrandColors | null> {
-  let data: Buffer;
-  let channels: number;
+  let raster: { data: Uint8Array; width: number; height: number };
   try {
-    const result = await sharp(bytes, { density: 128 })
-      .resize(MAX_SIDE, MAX_SIDE, { fit: 'inside' })
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    data = result.data;
-    channels = result.info.channels;
+    raster = await decodeLogo(bytes, MAX_SIDE);
   } catch {
     return null;
   }
 
-  if (channels < 3) return null;
+  // WASM pipeline always yields straight-alpha RGBA (4 channels).
+  const data = raster.data;
+  const channels = 4;
 
   const buckets = new Map<number, Bucket>();
   let sampled = 0;
 
   for (let i = 0; i + channels <= data.length; i += channels) {
-    const alpha = channels === 4 ? data[i + 3]! : 255;
+    const alpha = data[i + 3]!;
     if (alpha < ALPHA_MIN) continue;
 
     const r = data[i]!;

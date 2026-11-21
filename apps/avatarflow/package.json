@@ -14,12 +14,19 @@
     "test:watch": "vitest",
     "db:migrate": "node scripts/migrate.mjs",
     "db:bootstrap": "node scripts/supabase-bootstrap.mjs",
-    "db:verify": "node scripts/supabase-verify.mjs"
+    "db:verify": "node scripts/supabase-verify.mjs",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1170.0",
+    "@cf-wasm/photon": "^0.4.0",
+    "@cf-wasm/resvg": "^0.4.0",
     "@dicebear/core": "11.0.0-rc.3",
     "@dicebear/styles": "11.0.0-rc.3",
+    "@jsquash/webp": "^1.5.0",
+    "@opennextjs/cloudflare": "^1.20.18",
     "@resvg/resvg-js": "^2.6.2",
     "@supabase/supabase-js": "^2.119.0",
     "clsx": "^2.1.1",
@@ -29,6 +36,7 @@
     "react-dom": "19.3.1",
     "sharp": "^0.35.5",
     "undici": "^8.12.4",
+    "wrangler": "^4.166.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

@@ -1,0 +1,27 @@
+# Cloudflare Worker config for AvatarFlow (OpenNext Cloudflare adapter).
+# Secrets (Supabase service key, R2 keys, admin hash/secret) are injected via
+# `wrangler secret bulk` from .env.local at deploy time and are NOT stored here.
+name = "avatarflow"
+main = ".open-next/worker.js"
+compatibility_date = "2026-11-21"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# Self-reference service binding required by OpenNext for internal revalidation.
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "avatarflow"
+
+[vars]
+NEXT_PUBLIC_APP_URL = "https://avatarflow.1216564567.workers.dev"
+NEXT_PUBLIC_SITE_URL = "https://avatarflow.1216564567.workers.dev"
+NEXT_PUBLIC_SUPABASE_URL = "https://bmegsludumtpnyqmrgxi.supabase.co"
+SUPABASE_PROJECT_REF = "bmegsludumtpnyqmrgxi"
+ADMIN_EMAIL = "admin@avatarflow.local"
+R2_ACCOUNT_ID = "b4380f2027fa71158efecdeb34ebe83a"
+R2_BUCKET = "avatarflow-uploads"
+R2_PUBLIC_URL = "https://pub-d20fb28cf4434848b167ba2aee481b08.r2.dev"
+NODE_ENV = "production"
